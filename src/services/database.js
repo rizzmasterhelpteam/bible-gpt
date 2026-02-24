@@ -1,7 +1,11 @@
 import * as SQLite from 'expo-sqlite';
 import { KJV_BIBLE } from '../data/bibleData';
 
-// Book name → ID mapping (matches the 'book' field inside the downloaded JSON)
+// ─────────────────────────────────────────────
+// Bible data served DIRECTLY from bundled JSON
+// No SQLite seeding needed – instant startup!
+// ─────────────────────────────────────────────
+
 const BOOK_ID_MAP = {
   "Genesis": 1, "Exodus": 2, "Leviticus": 3, "Numbers": 4, "Deuteronomy": 5,
   "Joshua": 6, "Judges": 7, "Ruth": 8, "1 Samuel": 9, "2 Samuel": 10,
@@ -20,41 +24,91 @@ const BOOK_ID_MAP = {
   "Revelation": 66,
 };
 
-const TESTAMENT_MAP = (id) => id <= 39 ? 'Old' : 'New';
+// Build a lookup: bookId → bookData (done once on module load)
+const BOOK_MAP = {};
+for (const bookData of KJV_BIBLE) {
+  const id = BOOK_ID_MAP[bookData.book];
+  if (id) BOOK_MAP[id] = bookData;
+}
+
+const TESTAMENT = (id) => id <= 39 ? 'Old' : 'New';
+
+// ─────────────────────────────────────────────
+// Bible query functions (pure JavaScript, instant)
+// ─────────────────────────────────────────────
+
+export const getBooks = async () => {
+  return KJV_BIBLE
+    .map((bookData) => {
+      const id = BOOK_ID_MAP[bookData.book];
+      if (!id) return null;
+      return {
+        id,
+        name: bookData.book,
+        testament: TESTAMENT(id),
+        chapters: bookData.chapters.length,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.id - b.id);
+};
+
+export const getChapter = async (bookId, chapter) => {
+  const bookData = BOOK_MAP[bookId];
+  if (!bookData) return [];
+  const chapterData = bookData.chapters.find(c => parseInt(c.chapter, 10) === chapter);
+  if (!chapterData) return [];
+  return chapterData.verses.map((v) => ({
+    book_id: bookId,
+    book_name: bookData.book,
+    chapter,
+    verse: parseInt(v.verse, 10),
+    text: v.text,
+  }));
+};
+
+export const searchVerses = async (keyword) => {
+  if (!keyword || keyword.trim().length < 2) return [];
+  const lower = keyword.toLowerCase();
+  const results = [];
+  for (const bookData of KJV_BIBLE) {
+    const bookId = BOOK_ID_MAP[bookData.book];
+    if (!bookId) continue;
+    for (const chapterData of bookData.chapters) {
+      const chapterNum = parseInt(chapterData.chapter, 10);
+      for (const verseData of chapterData.verses) {
+        if (verseData.text.toLowerCase().includes(lower)) {
+          results.push({
+            book_id: bookId,
+            book_name: bookData.book,
+            chapter: chapterNum,
+            verse: parseInt(verseData.verse, 10),
+            text: verseData.text,
+          });
+          if (results.length >= 50) return results;
+        }
+      }
+    }
+  }
+  return results;
+};
+
+// ─────────────────────────────────────────────
+// SQLite – only used for Bookmarks & Chat History
+// ─────────────────────────────────────────────
 
 let db = null;
 
 const getDB = async () => {
   if (!db) {
-    db = await SQLite.openDatabaseAsync('bible_kjv2.db');
+    db = await SQLite.openDatabaseAsync('bible_app.db');
   }
   return db;
 };
 
-/**
- * Initialize database schema and seed KJV data.
- * @param {Function} onProgress - called with (bookIndex, totalBooks) during seeding
- */
-export const initDatabase = async (onProgress) => {
+export const initDatabase = async () => {
   const database = await getDB();
-
-  // Create tables
   await database.execAsync(`
-    PRAGMA journal_mode=WAL;
-    CREATE TABLE IF NOT EXISTS books (
-      id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      testament TEXT NOT NULL,
-      chapters INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS verses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      book_id INTEGER NOT NULL,
-      chapter INTEGER NOT NULL,
-      verse INTEGER NOT NULL,
-      text TEXT NOT NULL,
-      UNIQUE(book_id, chapter, verse)
-    );
     CREATE TABLE IF NOT EXISTS bookmarks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       book_id INTEGER NOT NULL,
@@ -69,79 +123,8 @@ export const initDatabase = async (onProgress) => {
       content TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE INDEX IF NOT EXISTS idx_verses_book ON verses(book_id, chapter, verse);
   `);
-
-  // Check if already seeded
-  const bookCount = await database.getFirstAsync('SELECT COUNT(*) as count FROM books;');
-  if (bookCount.count >= 66) return true;
-
-  // Seed inside a single transaction for speed (100x faster than individual inserts)
-  await database.execAsync('BEGIN TRANSACTION;');
-  try {
-    const total = KJV_BIBLE.length;
-    for (let i = 0; i < total; i++) {
-      const bookData = KJV_BIBLE[i];
-      const bookName = bookData.book;
-      const bookId = BOOK_ID_MAP[bookName];
-      if (!bookId) {
-        console.warn('Unknown book:', bookName);
-        continue;
-      }
-
-      const testament = TESTAMENT_MAP(bookId);
-      const chapterCount = bookData.chapters.length;
-
-      await database.runAsync(
-        'INSERT OR IGNORE INTO books (id, name, testament, chapters) VALUES (?, ?, ?, ?);',
-        [bookId, bookName, testament, chapterCount]
-      );
-
-      for (const chapterData of bookData.chapters) {
-        const chapterNum = parseInt(chapterData.chapter, 10);
-        for (const verseData of chapterData.verses) {
-          const verseNum = parseInt(verseData.verse, 10);
-          await database.runAsync(
-            'INSERT OR IGNORE INTO verses (book_id, chapter, verse, text) VALUES (?, ?, ?, ?);',
-            [bookId, chapterNum, verseNum, verseData.text]
-          );
-        }
-      }
-
-      if (onProgress) onProgress(i + 1, total);
-    }
-    await database.execAsync('COMMIT;');
-    console.log('Bible seeding complete!');
-  } catch (error) {
-    await database.execAsync('ROLLBACK;');
-    console.error('Seeding error:', error);
-    throw error;
-  }
-
   return true;
-};
-
-export const getBooks = async () => {
-  const database = await getDB();
-  return await database.getAllAsync('SELECT * FROM books ORDER BY id;');
-};
-
-export const getChapter = async (bookId, chapter) => {
-  const database = await getDB();
-  return await database.getAllAsync(
-    'SELECT * FROM verses WHERE book_id = ? AND chapter = ? ORDER BY verse;',
-    [bookId, chapter]
-  );
-};
-
-export const searchVerses = async (keyword) => {
-  const database = await getDB();
-  return await database.getAllAsync(
-    `SELECT v.*, b.name as book_name
-     FROM verses v JOIN books b ON v.book_id = b.id
-     WHERE v.text LIKE ? LIMIT 50;`,
-    [`%${keyword}%`]
-  );
 };
 
 export const addBookmark = async (bookId, chapter, verse) => {
@@ -159,13 +142,23 @@ export const deleteBookmark = async (id) => {
 
 export const getBookmarks = async () => {
   const database = await getDB();
-  return await database.getAllAsync(
-    `SELECT b.*, bk.name as book_name, v.text
-     FROM bookmarks b
-     JOIN books bk ON b.book_id = bk.id
-     JOIN verses v ON b.book_id = v.book_id AND b.chapter = v.chapter AND b.verse = v.verse
-     ORDER BY b.created_at DESC;`
+  const rows = await database.getAllAsync(
+    'SELECT * FROM bookmarks ORDER BY created_at DESC;'
   );
+  // Enrich with verse text from bundled data
+  return rows.map((row) => {
+    const bookData = BOOK_MAP[row.book_id];
+    const bookName = bookData ? bookData.book : 'Unknown';
+    let text = '';
+    if (bookData) {
+      const chapterData = bookData.chapters.find(c => parseInt(c.chapter, 10) === row.chapter);
+      if (chapterData) {
+        const verseData = chapterData.verses.find(v => parseInt(v.verse, 10) === row.verse);
+        if (verseData) text = verseData.text;
+      }
+    }
+    return { ...row, book_name: bookName, text };
+  });
 };
 
 export const saveChatMessage = async (role, content) => {
