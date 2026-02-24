@@ -9,7 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getTheme } from '../utils/theme';
 import { getAIResponse } from '../services/aiService';
 import { saveChatMessage, getChatHistory, clearChatHistory } from '../services/database';
@@ -43,32 +45,36 @@ const ChatScreen = ({ isDark = false }) => {
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
 
+    const userMessageContent = inputText.trim();
     const userMessage = {
       id: Date.now(),
       role: 'user',
-      content: inputText.trim(),
+      content: userMessageContent,
       timestamp: new Date().toISOString(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    // Add user message to state and clear input immediately
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputText('');
     setIsLoading(true);
 
     // Save user message to database
     try {
-      await saveChatMessage('user', userMessage.content);
+      await saveChatMessage('user', userMessageContent);
     } catch (error) {
       console.error('Error saving message:', error);
     }
 
+    // Build conversation history INCLUDING the new user message for context
+    const conversationHistory = updatedMessages.map(msg => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
     // Get AI response
     try {
-      const conversationHistory = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      const aiResponseText = await getAIResponse(userMessage.content, conversationHistory);
+      const aiResponseText = await getAIResponse(userMessageContent, conversationHistory);
 
       const aiMessage = {
         id: Date.now() + 1,
@@ -93,13 +99,26 @@ const ChatScreen = ({ isDark = false }) => {
     }
   };
 
-  const handleClearHistory = async () => {
-    try {
-      await clearChatHistory();
-      setMessages([]);
-    } catch (error) {
-      console.error('Error clearing chat history:', error);
-    }
+  const handleClearHistory = () => {
+    Alert.alert(
+      'Clear Chat History',
+      'Are you sure you want to clear all messages?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearChatHistory();
+              setMessages([]);
+            } catch (error) {
+              console.error('Error clearing chat history:', error);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const MessageBubble = ({ message }) => {
@@ -107,13 +126,7 @@ const ChatScreen = ({ isDark = false }) => {
     const bubbleStyle = isUser
       ? { backgroundColor: theme.colors.userBubble, alignSelf: 'flex-end' }
       : { backgroundColor: theme.colors.aiBubble, alignSelf: 'flex-start' };
-
-    const textStyle = isUser
-      ? { color: '#FFFFFF' }
-      : { color: theme.colors.text };
-
-    // Check if message contains verse references (format: Book Chapter:Verse)
-    const hasVerseFormat = message.content.includes('📖');
+    const textStyle = isUser ? { color: '#FFFFFF' } : { color: theme.colors.text };
 
     return (
       <View
@@ -121,13 +134,11 @@ const ChatScreen = ({ isDark = false }) => {
           styles.messageBubble,
           bubbleStyle,
           theme.shadows.sm,
-          { maxWidth: '80%' }
+          { maxWidth: '80%' },
         ]}
       >
-        <Text style={[styles.messageText, textStyle, hasVerseFormat && styles.verseText]}>
-          {message.content}
-        </Text>
-        <Text style={[styles.timestamp, { color: isUser ? '#FFFFFF' : theme.colors.textSecondary }]}>
+        <Text style={[styles.messageText, textStyle]}>{message.content}</Text>
+        <Text style={[styles.timestamp, { color: isUser ? 'rgba(255,255,255,0.7)' : theme.colors.textSecondary }]}>
           {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
@@ -141,19 +152,21 @@ const ChatScreen = ({ isDark = false }) => {
       keyboardVerticalOffset={90}
     >
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.border }]}>
-        <View>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Bible GPT</Text>
-          <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-            Chat with Abba
-          </Text>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: theme.colors.surface }}>
+        <View style={[styles.header, { borderBottomColor: theme.colors.border }]}>
+          <View>
+            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Bible GPT</Text>
+            <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
+              Chat with Abba
+            </Text>
+          </View>
+          {messages.length > 0 && (
+            <TouchableOpacity onPress={handleClearHistory} style={styles.clearButton}>
+              <Text style={[styles.clearButtonText, { color: theme.colors.error }]}>Clear</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        {messages.length > 0 && (
-          <TouchableOpacity onPress={handleClearHistory} style={styles.clearButton}>
-            <Text style={[styles.clearButtonText, { color: theme.colors.error }]}>Clear</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      </SafeAreaView>
 
       {/* Messages */}
       <ScrollView
@@ -164,7 +177,7 @@ const ChatScreen = ({ isDark = false }) => {
       >
         {messages.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyIcon]}>💬</Text>
+            <Text style={styles.emptyIcon}>💬</Text>
             <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
               Welcome, my child
             </Text>
@@ -172,30 +185,17 @@ const ChatScreen = ({ isDark = false }) => {
               Share what's on your heart. I'm here to listen and provide comfort from God's Word.
             </Text>
             <View style={styles.suggestionsContainer}>
-              <TouchableOpacity
-                style={[styles.suggestionChip, { backgroundColor: theme.colors.surface }]}
-                onPress={() => setInputText("I'm feeling lonely")}
-              >
-                <Text style={[styles.suggestionText, { color: theme.colors.text }]}>
-                  I'm feeling lonely
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.suggestionChip, { backgroundColor: theme.colors.surface }]}
-                onPress={() => setInputText("I need encouragement")}
-              >
-                <Text style={[styles.suggestionText, { color: theme.colors.text }]}>
-                  I need encouragement
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.suggestionChip, { backgroundColor: theme.colors.surface }]}
-                onPress={() => setInputText("I'm worried about the future")}
-              >
-                <Text style={[styles.suggestionText, { color: theme.colors.text }]}>
-                  I'm worried about the future
-                </Text>
-              </TouchableOpacity>
+              {["I'm feeling lonely", "I need encouragement", "I'm worried about the future", "I feel hopeless"].map(suggestion => (
+                <TouchableOpacity
+                  key={suggestion}
+                  style={[styles.suggestionChip, { backgroundColor: theme.colors.surface }]}
+                  onPress={() => setInputText(suggestion)}
+                >
+                  <Text style={[styles.suggestionText, { color: theme.colors.text }]}>
+                    {suggestion}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         ) : (
@@ -213,119 +213,75 @@ const ChatScreen = ({ isDark = false }) => {
       </ScrollView>
 
       {/* Input */}
-      <View style={[styles.inputContainer, { backgroundColor: theme.colors.surface, borderTopColor: theme.colors.border }]}>
-        <TextInput
-          style={[styles.input, { color: theme.colors.text }]}
-          placeholder="Share your heart..."
-          placeholderTextColor={theme.colors.textSecondary}
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            { backgroundColor: inputText.trim() ? theme.colors.accent : theme.colors.border }
-          ]}
-          onPress={handleSend}
-          disabled={!inputText.trim() || isLoading}
-        >
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView edges={['bottom']} style={{ backgroundColor: theme.colors.surface }}>
+        <View style={[styles.inputContainer, { borderTopColor: theme.colors.border }]}>
+          <TextInput
+            style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.background }]}
+            placeholder="Share your heart..."
+            placeholderTextColor={theme.colors.textSecondary}
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={500}
+            onSubmitEditing={handleSend}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              { backgroundColor: inputText.trim() ? theme.colors.accent : theme.colors.border },
+            ]}
+            onPress={handleSend}
+            disabled={!inputText.trim() || isLoading}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: 60,
     borderBottomWidth: 1,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  clearButton: {
-    padding: 8,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messagesContent: {
-    padding: 16,
-  },
+  headerTitle: { fontSize: 20, fontWeight: 'bold' },
+  headerSubtitle: { fontSize: 14, marginTop: 2 },
+  clearButton: { padding: 8 },
+  clearButtonText: { fontSize: 14, fontWeight: '600' },
+  messagesContainer: { flex: 1 },
+  messagesContent: { padding: 16, paddingBottom: 8 },
   messageBubble: {
     padding: 12,
     borderRadius: 16,
     marginBottom: 12,
   },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  verseText: {
-    lineHeight: 24,
-  },
-  timestamp: {
-    fontSize: 11,
-    marginTop: 6,
-    opacity: 0.7,
-  },
+  messageText: { fontSize: 16, lineHeight: 24 },
+  timestamp: { fontSize: 11, marginTop: 6, opacity: 0.7 },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    marginTop: 80,
+    marginTop: 60,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  suggestionsContainer: {
-    width: '100%',
-    marginTop: 16,
-  },
+  emptyIcon: { fontSize: 64, marginBottom: 16 },
+  emptyTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+  emptyText: { fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
+  suggestionsContainer: { width: '100%', marginTop: 8 },
   suggestionChip: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 8,
   },
-  suggestionText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  suggestionText: { fontSize: 14, textAlign: 'center' },
   loadingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -334,10 +290,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 12,
   },
-  loadingText: {
-    marginLeft: 8,
-    fontSize: 14,
-  },
+  loadingText: { marginLeft: 8, fontSize: 14 },
   inputContainer: {
     flexDirection: 'row',
     padding: 12,
@@ -347,21 +300,18 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     maxHeight: 100,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     fontSize: 16,
+    borderRadius: 20,
+    marginRight: 8,
   },
   sendButton: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 20,
-    marginLeft: 8,
   },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  sendButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
 
 export default ChatScreen;

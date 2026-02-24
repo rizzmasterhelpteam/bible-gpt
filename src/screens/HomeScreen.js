@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getTheme } from '../utils/theme';
 import { searchVerses } from '../services/database';
 
-const { width } = Dimensions.get('window');
+const DAILY_KEYWORDS = ['love', 'peace', 'hope', 'strength', 'trust', 'joy', 'faith'];
 
 const HomeScreen = ({ navigation, isDark = false }) => {
   const theme = getTheme(isDark);
@@ -24,8 +24,10 @@ const HomeScreen = ({ navigation, isDark = false }) => {
 
   const loadDailyVerse = async () => {
     try {
-      // Get a random encouraging verse
-      const verses = await searchVerses('love');
+      // Pick a random keyword based on the day of the year for variety
+      const dayOfYear = Math.floor((Date.now() / 86400000)) % DAILY_KEYWORDS.length;
+      const keyword = DAILY_KEYWORDS[dayOfYear];
+      const verses = await searchVerses(keyword);
       if (verses.length > 0) {
         const randomVerse = verses[Math.floor(Math.random() * verses.length)];
         setDailyVerse(randomVerse);
@@ -54,15 +56,20 @@ const HomeScreen = ({ navigation, isDark = false }) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      
+
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.logo, { color: theme.colors.primary }]}>Bible GPT</Text>
-          <Text style={[styles.tagline, { color: theme.colors.textSecondary }]}>
-            Your Spiritual Companion
-          </Text>
-        </View>
+        {/* Gradient Header */}
+        <LinearGradient
+          colors={isDark ? ['#4A2C0A', '#1A1A1A'] : ['#F5E6D0', '#FFFFFF']}
+          style={styles.header}
+        >
+          <SafeAreaView edges={['top']}>
+            <Text style={[styles.logo, { color: theme.colors.primary }]}>🙏 Bible GPT</Text>
+            <Text style={[styles.tagline, { color: theme.colors.textSecondary }]}>
+              Your Spiritual Companion
+            </Text>
+          </SafeAreaView>
+        </LinearGradient>
 
         {/* Daily Verse Card */}
         <View style={[styles.verseCard, { backgroundColor: theme.colors.verseBg }, theme.shadows.lg]}>
@@ -75,7 +82,7 @@ const HomeScreen = ({ navigation, isDark = false }) => {
                 "{dailyVerse.text}"
               </Text>
               <Text style={[styles.verseReference, { color: theme.colors.textSecondary }]}>
-                {dailyVerse.book_name} {dailyVerse.chapter}:{dailyVerse.verse}
+                — {dailyVerse.book_name} {dailyVerse.chapter}:{dailyVerse.verse}
               </Text>
             </>
           ) : (
@@ -83,6 +90,9 @@ const HomeScreen = ({ navigation, isDark = false }) => {
               Loading today's encouragement...
             </Text>
           )}
+          <TouchableOpacity onPress={loadDailyVerse} style={styles.refreshVerseButton}>
+            <Text style={[styles.refreshVerseText, { color: theme.colors.primary }]}>🔄 New Verse</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Quick Actions */}
@@ -126,7 +136,7 @@ const HomeScreen = ({ navigation, isDark = false }) => {
             "The Lord is my light and my salvation—whom shall I fear?"
           </Text>
           <Text style={[styles.quoteReference, { color: theme.colors.primary }]}>
-            - Psalm 27:1
+            — Psalm 27:1
           </Text>
         </View>
       </ScrollView>
@@ -139,19 +149,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 60,
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingBottom: 24,
+    paddingTop: 8,
     alignItems: 'center',
   },
   logo: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: 'bold',
     marginBottom: 4,
+    textAlign: 'center',
   },
   tagline: {
     fontSize: 16,
     fontStyle: 'italic',
+    textAlign: 'center',
   },
   verseCard: {
     marginHorizontal: 24,
@@ -175,6 +187,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'right',
+    marginBottom: 12,
+  },
+  refreshVerseButton: {
+    alignSelf: 'center',
+    marginTop: 4,
+  },
+  refreshVerseText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   actionsContainer: {
     flexDirection: 'row',

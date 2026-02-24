@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -13,6 +14,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 
 // Import services
 import { initDatabase } from './src/services/database';
+import { loadAIConfig } from './src/services/aiService';
 import { getTheme } from './src/utils/theme';
 
 const Tab = createBottomTabNavigator();
@@ -28,15 +30,14 @@ export default function App() {
 
   const initialize = async () => {
     try {
-      // Initialize database
       await initDatabase();
-      
-      // Load theme preference
+
       const savedTheme = await AsyncStorage.getItem('theme');
-      if (savedTheme) {
-        setIsDark(savedTheme === 'dark');
-      }
-      
+      if (savedTheme) setIsDark(savedTheme === 'dark');
+
+      // Load saved AI config so the app uses the correct API key from the start
+      await loadAIConfig();
+
       setIsReady(true);
     } catch (error) {
       console.error('Initialization error:', error);
@@ -54,103 +55,85 @@ export default function App() {
     }
   };
 
-  const TabIcon = ({ icon, focused, color }) => (
+  const TabIcon = ({ icon, focused }) => (
     <View style={styles.tabIconContainer}>
-      <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.6 }]}>
-        {icon}
-      </Text>
+      <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.5 }]}>{icon}</Text>
     </View>
   );
 
   if (!isReady) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <Text style={[styles.loadingLogo, { color: theme.colors.primary }]}>Bible GPT</Text>
-        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-          Loading...
-        </Text>
-      </View>
+      <SafeAreaProvider>
+        <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+          <Text style={[styles.loadingLogo, { color: theme.colors.primary }]}>🙏 Bible GPT</Text>
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+            Loading your spiritual companion...
+          </Text>
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: theme.colors.surface,
-            borderTopColor: theme.colors.border,
-            borderTopWidth: 1,
-            paddingTop: 8,
-            paddingBottom: 8,
-            height: 60,
-          },
-          tabBarActiveTintColor: theme.colors.primary,
-          tabBarInactiveTintColor: theme.colors.textSecondary,
-          tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '600',
-            marginTop: 4,
-          },
-        }}
-      >
-        <Tab.Screen
-          name="Home"
-          options={{
-            tabBarIcon: ({ focused, color }) => (
-              <TabIcon icon="🏠" focused={focused} color={color} />
-            ),
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={{
+            headerShown: false,
+            tabBarStyle: {
+              backgroundColor: theme.colors.surface,
+              borderTopColor: theme.colors.border,
+              borderTopWidth: 1,
+              paddingTop: 6,
+              paddingBottom: 6,
+              height: 60,
+            },
+            tabBarActiveTintColor: theme.colors.primary,
+            tabBarInactiveTintColor: theme.colors.textSecondary,
+            tabBarLabelStyle: {
+              fontSize: 11,
+              fontWeight: '600',
+              marginTop: 2,
+            },
           }}
         >
-          {props => <HomeScreen {...props} isDark={isDark} />}
-        </Tab.Screen>
+          <Tab.Screen
+            name="Home"
+            options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🏠" focused={focused} /> }}
+          >
+            {props => <HomeScreen {...props} isDark={isDark} />}
+          </Tab.Screen>
 
-        <Tab.Screen
-          name="Chat"
-          options={{
-            tabBarIcon: ({ focused, color }) => (
-              <TabIcon icon="💬" focused={focused} color={color} />
-            ),
-          }}
-        >
-          {props => <ChatScreen {...props} isDark={isDark} />}
-        </Tab.Screen>
+          <Tab.Screen
+            name="Chat"
+            options={{ tabBarIcon: ({ focused }) => <TabIcon icon="💬" focused={focused} /> }}
+          >
+            {props => <ChatScreen {...props} isDark={isDark} />}
+          </Tab.Screen>
 
-        <Tab.Screen
-          name="Library"
-          options={{
-            tabBarIcon: ({ focused, color }) => (
-              <TabIcon icon="📚" focused={focused} color={color} />
-            ),
-          }}
-        >
-          {props => <LibraryScreen {...props} isDark={isDark} />}
-        </Tab.Screen>
+          <Tab.Screen
+            name="Library"
+            options={{ tabBarIcon: ({ focused }) => <TabIcon icon="📚" focused={focused} /> }}
+          >
+            {props => <LibraryScreen {...props} isDark={isDark} />}
+          </Tab.Screen>
 
-        <Tab.Screen
-          name="Bookmarks"
-          options={{
-            tabBarIcon: ({ focused, color }) => (
-              <TabIcon icon="🔖" focused={focused} color={color} />
-            ),
-          }}
-        >
-          {props => <BookmarksScreen {...props} isDark={isDark} />}
-        </Tab.Screen>
+          <Tab.Screen
+            name="Bookmarks"
+            options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🔖" focused={focused} /> }}
+          >
+            {props => <BookmarksScreen {...props} isDark={isDark} />}
+          </Tab.Screen>
 
-        <Tab.Screen
-          name="Settings"
-          options={{
-            tabBarIcon: ({ focused, color }) => (
-              <TabIcon icon="⚙️" focused={focused} color={color} />
-            ),
-          }}
-        >
-          {props => <SettingsScreen {...props} isDark={isDark} onThemeToggle={toggleTheme} />}
-        </Tab.Screen>
-      </Tab.Navigator>
-    </NavigationContainer>
+          <Tab.Screen
+            name="Settings"
+            options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⚙️" focused={focused} /> }}
+          >
+            {props => <SettingsScreen {...props} isDark={isDark} onThemeToggle={toggleTheme} />}
+          </Tab.Screen>
+        </Tab.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 
@@ -173,6 +156,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabIcon: {
-    fontSize: 24,
+    fontSize: 22,
   },
 });
