@@ -10,11 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getTheme } from '../utils/theme';
 import { updateAIConfig, getAIConfig } from '../services/aiService';
+import { useTheme } from '../context/ThemeContext';
 
-const SettingsScreen = ({ isDark = false, onThemeToggle }) => {
-  const theme = getTheme(isDark);
+const SettingsScreen = ({ navigation }) => {
+  const { theme, isDark, toggleTheme: onThemeToggle } = useTheme();
   const [apiKey, setApiKey] = useState('');
   const [provider, setProvider] = useState('openai');
   const [fontSize, setFontSize] = useState('medium');
@@ -26,12 +26,11 @@ const SettingsScreen = ({ isDark = false, onThemeToggle }) => {
 
   const loadSettings = async () => {
     try {
-      const savedApiKey = await AsyncStorage.getItem('ai_api_key');
-      const savedProvider = await AsyncStorage.getItem('ai_provider');
+      const config = getAIConfig();
       const savedFontSize = await AsyncStorage.getItem('font_size');
 
-      if (savedApiKey) setApiKey(savedApiKey);
-      if (savedProvider) setProvider(savedProvider);
+      if (config.apiKey) setApiKey(config.apiKey);
+      if (config.provider) setProvider(config.provider);
       if (savedFontSize) setFontSize(savedFontSize);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -47,7 +46,7 @@ const SettingsScreen = ({ isDark = false, onThemeToggle }) => {
     try {
       await AsyncStorage.setItem('ai_api_key', apiKey);
       await AsyncStorage.setItem('ai_provider', provider);
-      
+
       updateAIConfig({
         apiKey: apiKey,
         provider: provider,
@@ -127,13 +126,13 @@ const SettingsScreen = ({ isDark = false, onThemeToggle }) => {
                     key={size}
                     style={[
                       styles.fontSizeButton,
-                      { 
-                        backgroundColor: fontSize === size ? theme.colors.primary : theme.colors.border 
+                      {
+                        backgroundColor: fontSize === size ? theme.colors.primary : theme.colors.border
                       }
                     ]}
                     onPress={() => handleFontSizeChange(size)}
                   >
-                    <Text 
+                    <Text
                       style={[
                         styles.fontSizeButtonText,
                         { color: fontSize === size ? '#FFFFFF' : theme.colors.text }
@@ -163,48 +162,33 @@ const SettingsScreen = ({ isDark = false, onThemeToggle }) => {
             <View style={[styles.apiConfig, { backgroundColor: theme.colors.verseBg }]}>
               <Text style={[styles.apiConfigLabel, { color: theme.colors.text }]}>Provider</Text>
               <View style={styles.providerButtons}>
-                <TouchableOpacity
-                  style={[
-                    styles.providerButton,
-                    { 
-                      backgroundColor: provider === 'openai' ? theme.colors.accent : theme.colors.border 
-                    }
-                  ]}
-                  onPress={() => setProvider('openai')}
-                >
-                  <Text 
+                {['openai', 'anthropic', 'groq', 'gemini'].map(p => (
+                  <TouchableOpacity
+                    key={p}
                     style={[
-                      styles.providerButtonText,
-                      { color: provider === 'openai' ? '#FFFFFF' : theme.colors.text }
+                      styles.providerButton,
+                      {
+                        backgroundColor: provider === p ? theme.colors.accent : theme.colors.border
+                      }
                     ]}
+                    onPress={() => setProvider(p)}
                   >
-                    OpenAI
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.providerButton,
-                    { 
-                      backgroundColor: provider === 'anthropic' ? theme.colors.accent : theme.colors.border 
-                    }
-                  ]}
-                  onPress={() => setProvider('anthropic')}
-                >
-                  <Text 
-                    style={[
-                      styles.providerButtonText,
-                      { color: provider === 'anthropic' ? '#FFFFFF' : theme.colors.text }
-                    ]}
-                  >
-                    Claude
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.providerButtonText,
+                        { color: provider === p ? '#FFFFFF' : theme.colors.text }
+                      ]}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
 
-              <Text style={[styles.apiConfigLabel, { color: theme.colors.text }]}>API Key</Text>
+              <Text style={[styles.apiConfigLabel, { color: theme.colors.text }]}>API Key ({provider})</Text>
               <TextInput
                 style={[styles.apiInput, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
-                placeholder="Enter your API key"
+                placeholder={`Enter your ${provider} API key`}
                 placeholderTextColor={theme.colors.textSecondary}
                 value={apiKey}
                 onChangeText={setApiKey}
@@ -212,8 +196,11 @@ const SettingsScreen = ({ isDark = false, onThemeToggle }) => {
               />
 
               <Text style={[styles.apiConfigHelp, { color: theme.colors.textSecondary }]}>
-                Get your API key from {provider === 'openai' ? 'OpenAI' : 'Anthropic'} website. 
-                Without an API key, the app will use fallback responses.
+                {provider === 'openai' && "Get your key from platform.openai.com. (Paid API)"}
+                {provider === 'anthropic' && "Get your key from console.anthropic.com. (Paid API)"}
+                {provider === 'groq' && "Get your FREE key from console.groq.com. (High speed!)"}
+                {provider === 'gemini' && "Get your FREE key from aistudio.google.com. (Highly recommended!)"}
+                {"\n\nWithout an API key, the app will use basic fallback responses."}
               </Text>
 
               <TouchableOpacity
@@ -228,15 +215,15 @@ const SettingsScreen = ({ isDark = false, onThemeToggle }) => {
 
         {/* Support */}
         <SettingSection title="Support">
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.settingRow, { backgroundColor: theme.colors.surface }]}
             onPress={() => Alert.alert('Help', 'Bible GPT helps you find comfort in Scripture. Chat with Abba to share your struggles and receive encouragement.')}
           >
             <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Help & Tutorial</Text>
             <Text style={[styles.settingArrow, { color: theme.colors.textSecondary }]}>→</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.settingRow, { backgroundColor: theme.colors.surface }]}
             onPress={() => Alert.alert('Feedback', 'Thank you for using Bible GPT! Your feedback helps us improve.')}
           >
@@ -355,14 +342,16 @@ const styles = StyleSheet.create({
   },
   providerButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
   },
   providerButton: {
-    flex: 1,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
+    minWidth: '22%',
   },
   providerButtonText: {
     fontSize: 14,

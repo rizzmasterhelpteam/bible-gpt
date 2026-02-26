@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getTheme } from '../utils/theme';
-import { getAIResponse } from '../services/aiService';
+import { getAIResponse, getAIConfig } from '../services/aiService';
 import { saveChatMessage, getChatHistory, clearChatHistory } from '../services/database';
+import { useTheme } from '../context/ThemeContext';
 
-const ChatScreen = ({ isDark = false }) => {
-  const theme = getTheme(isDark);
+const ChatScreen = ({ navigation }) => {
+  const { theme, isDark } = useTheme();
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);

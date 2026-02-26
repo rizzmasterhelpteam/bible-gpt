@@ -34,6 +34,32 @@ for (const bookData of KJV_BIBLE) {
 const TESTAMENT = (id) => id <= 39 ? 'Old' : 'New';
 
 // ─────────────────────────────────────────────
+// Search Index – pre-computed for performance
+// ─────────────────────────────────────────────
+
+const SEARCH_INDEX = [];
+const buildSearchIndex = () => {
+  if (SEARCH_INDEX.length > 0) return;
+  for (const bookData of KJV_BIBLE) {
+    const bookId = BOOK_ID_MAP[bookData.book];
+    if (!bookId) continue;
+    for (const chapterData of bookData.chapters) {
+      const chapterNum = parseInt(chapterData.chapter, 10);
+      for (const verseData of chapterData.verses) {
+        SEARCH_INDEX.push({
+          book_id: bookId,
+          book_name: bookData.book,
+          chapter: chapterNum,
+          verse: parseInt(verseData.verse, 10),
+          text: verseData.text,
+          lowerText: verseData.text.toLowerCase()
+        });
+      }
+    }
+  }
+};
+
+// ─────────────────────────────────────────────
 // Bible query functions (pure JavaScript, instant)
 // ─────────────────────────────────────────────
 
@@ -69,27 +95,24 @@ export const getChapter = async (bookId, chapter) => {
 
 export const searchVerses = async (keyword) => {
   if (!keyword || keyword.trim().length < 2) return [];
+  buildSearchIndex();
+
   const lower = keyword.toLowerCase();
   const results = [];
-  for (const bookData of KJV_BIBLE) {
-    const bookId = BOOK_ID_MAP[bookData.book];
-    if (!bookId) continue;
-    for (const chapterData of bookData.chapters) {
-      const chapterNum = parseInt(chapterData.chapter, 10);
-      for (const verseData of chapterData.verses) {
-        if (verseData.text.toLowerCase().includes(lower)) {
-          results.push({
-            book_id: bookId,
-            book_name: bookData.book,
-            chapter: chapterNum,
-            verse: parseInt(verseData.verse, 10),
-            text: verseData.text,
-          });
-          if (results.length >= 50) return results;
-        }
-      }
+
+  for (const item of SEARCH_INDEX) {
+    if (item.lowerText.includes(lower)) {
+      results.push({
+        book_id: item.book_id,
+        book_name: item.book_name,
+        chapter: item.chapter,
+        verse: item.verse,
+        text: item.text
+      });
+      if (results.length >= 50) break;
     }
   }
+
   return results;
 };
 

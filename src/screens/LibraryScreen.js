@@ -10,11 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getTheme } from '../utils/theme';
 import { getBooks, getChapter, searchVerses, addBookmark } from '../services/database';
+import { useTheme } from '../context/ThemeContext';
 
-const LibraryScreen = ({ isDark = false }) => {
-  const theme = getTheme(isDark);
+const LibraryScreen = ({ navigation }) => {
+  const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState('books');
   const [books, setBooks] = useState([]);
   const [selectedBook, setSelectedBook] = useState(null);

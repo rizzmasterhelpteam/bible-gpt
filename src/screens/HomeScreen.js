@@ -9,13 +9,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getTheme } from '../utils/theme';
 import { searchVerses } from '../services/database';
+import { useTheme } from '../context/ThemeContext';
 
 const DAILY_KEYWORDS = ['love', 'peace', 'hope', 'strength', 'trust', 'joy', 'faith'];
 
-const HomeScreen = ({ navigation, isDark = false }) => {
-  const theme = getTheme(isDark);
+const HomeScreen = ({ navigation }) => {
+  const { theme, isDark } = useTheme();
   const [dailyVerse, setDailyVerse] = useState(null);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ const HomeScreen = ({ navigation, isDark = false }) => {
       activeOpacity={0.7}
     >
       <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
-        <Text style={[styles.iconText, { color }]}>{icon}</Text>
+        <MaterialCommunityIcons name={icon} size={28} color={color} />
       </View>
       <Text style={[styles.actionTitle, { color: theme.colors.text }]}>{title}</Text>
       <Text style={[styles.actionSubtitle, { color: theme.colors.textSecondary }]}>
@@ -100,14 +102,14 @@ const HomeScreen = ({ navigation, isDark = false }) => {
           <QuickActionCard
             title="Chat with Abba"
             subtitle="Share your heart"
-            icon="💬"
+            icon="chat-processing"
             color={theme.colors.accent}
             onPress={() => navigation.navigate('Chat')}
           />
           <QuickActionCard
             title="Browse Library"
             subtitle="Read Scripture"
-            icon="📚"
+            icon="book-open-variant"
             color={theme.colors.primary}
             onPress={() => navigation.navigate('Library')}
           />
@@ -117,14 +119,14 @@ const HomeScreen = ({ navigation, isDark = false }) => {
           <QuickActionCard
             title="My Bookmarks"
             subtitle="Saved verses"
-            icon="🔖"
+            icon="bookmark"
             color="#27AE60"
             onPress={() => navigation.navigate('Bookmarks')}
           />
           <QuickActionCard
             title="Settings"
             subtitle="Customize app"
-            icon="⚙️"
+            icon="cog"
             color="#9B59B6"
             onPress={() => navigation.navigate('Settings')}
           />

@@ -6,9 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getTheme } from '../utils/theme';
 import { getBookmarks, deleteBookmark } from '../services/database';
+import { useTheme } from '../context/ThemeContext';
 
-const BookmarksScreen = ({ isDark = false }) => {
-  const theme = getTheme(isDark);
+const BookmarksScreen = ({ navigation }) => {
+  const { theme, isDark } = useTheme();
   const [bookmarks, setBookmarks] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
