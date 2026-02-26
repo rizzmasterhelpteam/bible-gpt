@@ -165,21 +165,21 @@ const getFallbackResponse = (userMessage) => {
  * Main function to get AI response
  */
 export const getAIResponse = async (userMessage, conversationHistory = []) => {
+  const isPlaceholder = (val) => {
+    if (!val || typeof val !== 'string') return true;
+    const lowerVal = val.toLowerCase();
+    return lowerVal === '' ||
+      lowerVal.includes('your_api_key') ||
+      lowerVal.includes('your_groq_api_key') ||
+      lowerVal.includes('placeholder');
+  };
+
+  if (isPlaceholder(AI_CONFIG.apiKey)) {
+    console.warn('[AI SERVICE] Missing or invalid API key.');
+    return "My child, it seems my voice is quiet because I have not been given a valid key to speak. (Please add your key to the .env file and restart the app).";
+  }
+
   try {
-    const isPlaceholder = (val) => {
-      if (!val || typeof val !== 'string') return true;
-      const lowerVal = val.toLowerCase();
-      return lowerVal === '' ||
-        lowerVal.includes('your_api_key') ||
-        lowerVal.includes('your_groq_api_key') ||
-        lowerVal.includes('placeholder');
-    };
-
-    if (isPlaceholder(AI_CONFIG.apiKey)) {
-      console.warn('[AI SERVICE] Missing or invalid API key:', AI_CONFIG.apiKey);
-      return "My child, it seems my voice is quiet because I have not been given a valid key to speak. (Please add your key to the .env file and restart the app).";
-    }
-
     const providerFn = PROVIDERS[AI_CONFIG.provider];
     if (!providerFn) {
       console.error(`[AI SERVICE] Unsupported provider: ${AI_CONFIG.provider}`);
@@ -195,18 +195,14 @@ export const getAIResponse = async (userMessage, conversationHistory = []) => {
     console.error(`[AI SERVICE] ${AI_CONFIG.provider} API Error:`, errorMessage);
 
     if (errorData?.error?.code === 'insufficient_quota') {
-      return "My child, it seems my strength is spent for now (API quota exceeded). Let us rest and try again later.";
+      return "My child, my strength is spent for now (API quota exceeded). Please check your billing or plan.";
     }
 
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      return "My child, my connection is a bit weak right now. Let us try again in a moment.";
+      return "My child, the connection timed out. Please check your internet.";
     }
 
-    if (errorMessage.includes('401') || errorMessage.includes('invalid_api_key')) {
-      return "My child, it seems the key I was given is not recognized. Please double check your API key.";
-    }
-
-    return getFallbackResponse(userMessage);
+    return `My child, I stumbled while trying to speak: ${errorMessage}. (Please check your API key in .env)`;
   }
 };
 

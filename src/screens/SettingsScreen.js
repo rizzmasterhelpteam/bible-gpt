@@ -225,64 +225,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  configButton: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  configButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  apiConfig: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  apiConfigLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  providerButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  providerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    minWidth: '22%',
-  },
-  providerButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  apiInput: {
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  apiConfigHelp: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  saveButton: {
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   footer: {
     padding: 32,
     alignItems: 'center',
