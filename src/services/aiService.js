@@ -25,7 +25,7 @@ export const loadAIConfig = async () => {
     if (hasValidEnvKey) {
       AI_CONFIG.apiKey = envKey;
       AI_CONFIG.provider = 'groq';
-      AI_CONFIG.model = 'llama-3.1-7b-instant'; // Use a faster/smaller model as default
+      // No need to set model here, updateAIConfig will handle it below
       console.log('[AI SERVICE] Using Groq key from environment variables.');
     } else if (hasValidSavedKey) {
       AI_CONFIG.apiKey = savedApiKey;
@@ -37,7 +37,7 @@ export const loadAIConfig = async () => {
       console.log('[AI SERVICE] No valid API key found. Using fallback mode.');
     }
 
-    // Refresh model selection
+    // Refresh model selection based on provider
     updateAIConfig({ provider: AI_CONFIG.provider });
 
     const maskedKey = AI_CONFIG.apiKey ?
