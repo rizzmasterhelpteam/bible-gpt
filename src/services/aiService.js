@@ -16,25 +16,29 @@ export const loadAIConfig = async () => {
 
     // Default to ENV key if available
     const envKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+    const isPlaceholder = (val) => !val || val.includes('YOUR_API_KEY') || val.includes('YOUR_GROQ_API_KEY');
 
-    if (savedProvider) AI_CONFIG.provider = savedProvider;
-    else if (envKey) AI_CONFIG.provider = 'groq';
-
-    if (savedApiKey) AI_CONFIG.apiKey = savedApiKey;
-    else if (AI_CONFIG.provider === 'groq' && envKey) AI_CONFIG.apiKey = envKey;
-
-    // Update model based on provider if needed
-    if (AI_CONFIG.provider === 'anthropic') {
-      AI_CONFIG.model = 'claude-3-5-sonnet-20241022';
-    } else if (AI_CONFIG.provider === 'groq') {
-      AI_CONFIG.model = 'llama-3.1-70b-versatile';
-    } else if (AI_CONFIG.provider === 'gemini') {
-      AI_CONFIG.model = 'gemini-1.5-flash';
-    } else {
-      AI_CONFIG.model = 'gpt-3.5-turbo';
+    // 1. Determine Provider
+    if (savedProvider) {
+      AI_CONFIG.provider = savedProvider;
+    } else if (envKey && !isPlaceholder(envKey)) {
+      AI_CONFIG.provider = 'groq';
     }
+
+    // 2. Determine API Key
+    if (savedApiKey && !isPlaceholder(savedApiKey)) {
+      AI_CONFIG.apiKey = savedApiKey;
+    } else if (envKey && !isPlaceholder(envKey)) {
+      AI_CONFIG.apiKey = envKey;
+      AI_CONFIG.provider = 'groq'; // Force groq if we're using its env key
+    }
+
+    // Update model based on provider
+    updateAIConfig({ provider: AI_CONFIG.provider });
+
+    console.log(`[AI SERVICE] Loaded configuration. Provider: ${AI_CONFIG.provider}, Key: ${AI_CONFIG.apiKey ? 'Set (ends in ...' + AI_CONFIG.apiKey.slice(-4) + ')' : 'Not Set'}`);
   } catch (error) {
-    console.log('Could not load AI config:', error);
+    console.log('[AI SERVICE] Could not load AI config:', error);
   }
 };
 
@@ -178,10 +182,11 @@ const getFallbackResponse = (userMessage) => {
  * Main function to get AI response
  */
 export const getAIResponse = async (userMessage, conversationHistory = []) => {
-  const isUnconfigured = !AI_CONFIG.apiKey || AI_CONFIG.apiKey === 'YOUR_API_KEY_HERE';
+  const isPlaceholder = (val) => !val || val === '' || val.includes('YOUR_API_KEY') || val.includes('YOUR_GROQ_API_KEY');
 
-  if (isUnconfigured) {
-    return getFallbackResponse(userMessage);
+  if (isPlaceholder(AI_CONFIG.apiKey)) {
+    console.warn('[AI SERVICE] Attempted to chat without a valid API key.');
+    return "My child, it seems my voice is quiet because I have not been given a key to speak. (Please add your API key to the .env file and restart the app).";
   }
 
   try {
