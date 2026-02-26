@@ -87,11 +87,11 @@ const ChatScreen = ({ navigation }) => {
       setMessages(prev => [...prev, aiMessage]);
       await saveChatMessage('assistant', aiMessage.content);
     } catch (error) {
-      console.error('Error getting AI response:', error);
+      console.error('[CHAT SCREEN] Critical Response Error:', error);
       const errorMessage = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: "My child, I'm having trouble connecting right now. Please try again in a moment. Remember, God is always with you. 🙏",
+        content: "My child, I'm having trouble connecting right now. Please check your internet and API configuration. Remember, God is always with you. 🙏",
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, errorMessage]);

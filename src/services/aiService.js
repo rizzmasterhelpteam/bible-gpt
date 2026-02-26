@@ -182,26 +182,42 @@ const getFallbackResponse = (userMessage) => {
  * Main function to get AI response
  */
 export const getAIResponse = async (userMessage, conversationHistory = []) => {
-  const isPlaceholder = (val) => !val || val === '' || val.includes('YOUR_API_KEY') || val.includes('YOUR_GROQ_API_KEY');
-
-  if (isPlaceholder(AI_CONFIG.apiKey)) {
-    console.warn('[AI SERVICE] Attempted to chat without a valid API key.');
-    return "My child, it seems my voice is quiet because I have not been given a key to speak. (Please add your API key to the .env file and restart the app).";
-  }
-
   try {
+    const isPlaceholder = (val) => {
+      if (!val || typeof val !== 'string') return true;
+      const lowerVal = val.toLowerCase();
+      return lowerVal === '' ||
+        lowerVal.includes('your_api_key') ||
+        lowerVal.includes('your_groq_api_key') ||
+        lowerVal.includes('placeholder');
+    };
+
+    if (isPlaceholder(AI_CONFIG.apiKey)) {
+      console.warn('[AI SERVICE] Missing or invalid API key:', AI_CONFIG.apiKey);
+      return "My child, it seems my voice is quiet because I have not been given a valid key to speak. (Please add your key to the .env file and restart the app).";
+    }
+
     const providerFn = PROVIDERS[AI_CONFIG.provider];
     if (!providerFn) {
-      throw new Error(`Unsupported provider: ${AI_CONFIG.provider}`);
+      console.error(`[AI SERVICE] Unsupported provider: ${AI_CONFIG.provider}`);
+      return getFallbackResponse(userMessage);
     }
+
     // Limit context window to last 6 messages
     const trimmedHistory = conversationHistory.slice(-6);
     return await providerFn(userMessage, trimmedHistory);
   } catch (error) {
-    console.error(`AI Service Error (${AI_CONFIG.provider}):`, error.response?.data || error.message);
+    const errorData = error.response?.data;
+    console.error(`[AI SERVICE] ${AI_CONFIG.provider} Error:`, errorData || error.message);
+
+    if (errorData?.error?.code === 'insufficient_quota') {
+      return "My child, it seems my strength is spent for now (API quota exceeded). Let us rest and try again later.";
+    }
+
     if (error.code === 'ECONNABORTED') {
       return "My child, my connection is a bit weak right now. Let us try again in a moment.";
     }
+
     return getFallbackResponse(userMessage);
   }
 };
