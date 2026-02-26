@@ -16,29 +16,36 @@ export const loadAIConfig = async () => {
 
     // Default to ENV key if available
     const envKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
-    const isPlaceholder = (val) => !val || val.includes('YOUR_API_KEY') || val.includes('YOUR_GROQ_API_KEY');
+    const isPlaceholder = (val) => !val || val.trim() === '' || val.includes('YOUR_API_KEY') || val.includes('YOUR_GROQ_API_KEY') || val.includes('placeholder');
 
-    // 1. Determine Provider
-    if (savedProvider) {
-      AI_CONFIG.provider = savedProvider;
-    } else if (envKey && !isPlaceholder(envKey)) {
-      AI_CONFIG.provider = 'groq';
-    }
+    const hasValidEnvKey = envKey && !isPlaceholder(envKey);
+    const hasValidSavedKey = savedApiKey && !isPlaceholder(savedApiKey);
 
-    // 2. Determine API Key
-    if (savedApiKey && !isPlaceholder(savedApiKey)) {
-      AI_CONFIG.apiKey = savedApiKey;
-    } else if (envKey && !isPlaceholder(envKey)) {
+    // PRIORITY: 1. ENV Key, 2. Saved Key
+    if (hasValidEnvKey) {
       AI_CONFIG.apiKey = envKey;
-      AI_CONFIG.provider = 'groq'; // Force groq if we're using its env key
+      AI_CONFIG.provider = 'groq';
+      AI_CONFIG.model = 'llama-3.1-7b-instant'; // Use a faster/smaller model as default
+      console.log('[AI SERVICE] Using Groq key from environment variables.');
+    } else if (hasValidSavedKey) {
+      AI_CONFIG.apiKey = savedApiKey;
+      if (savedProvider) AI_CONFIG.provider = savedProvider;
+      console.log(`[AI SERVICE] Using saved API key (provider: ${AI_CONFIG.provider}).`);
+    } else {
+      AI_CONFIG.apiKey = '';
+      AI_CONFIG.provider = 'openai';
+      console.log('[AI SERVICE] No valid API key found. Using fallback mode.');
     }
 
-    // Update model based on provider
+    // Refresh model selection
     updateAIConfig({ provider: AI_CONFIG.provider });
 
-    console.log(`[AI SERVICE] Loaded configuration. Provider: ${AI_CONFIG.provider}, Key: ${AI_CONFIG.apiKey ? 'Set (ends in ...' + AI_CONFIG.apiKey.slice(-4) + ')' : 'Not Set'}`);
+    const maskedKey = AI_CONFIG.apiKey ?
+      `${AI_CONFIG.apiKey.substring(0, 4)}...${AI_CONFIG.apiKey.substring(AI_CONFIG.apiKey.length - 4)}` :
+      'NONE';
+    console.log(`[AI SERVICE] Ready. Provider: ${AI_CONFIG.provider}, Model: ${AI_CONFIG.model}, Key: ${maskedKey}`);
   } catch (error) {
-    console.log('[AI SERVICE] Could not load AI config:', error);
+    console.log('[AI SERVICE] Critical error during load:', error);
   }
 };
 
@@ -184,14 +191,19 @@ export const getAIResponse = async (userMessage, conversationHistory = []) => {
     return await providerFn(userMessage, trimmedHistory);
   } catch (error) {
     const errorData = error.response?.data;
-    console.error(`[AI SERVICE] ${AI_CONFIG.provider} Error:`, errorData || error.message);
+    const errorMessage = errorData?.error?.message || error.message;
+    console.error(`[AI SERVICE] ${AI_CONFIG.provider} API Error:`, errorMessage);
 
     if (errorData?.error?.code === 'insufficient_quota') {
       return "My child, it seems my strength is spent for now (API quota exceeded). Let us rest and try again later.";
     }
 
-    if (error.code === 'ECONNABORTED') {
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       return "My child, my connection is a bit weak right now. Let us try again in a moment.";
+    }
+
+    if (errorMessage.includes('401') || errorMessage.includes('invalid_api_key')) {
+      return "My child, it seems the key I was given is not recognized. Please double check your API key.";
     }
 
     return getFallbackResponse(userMessage);
