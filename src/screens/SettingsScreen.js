@@ -10,15 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { updateAIConfig, getAIConfig } from '../services/aiService';
 import { useTheme } from '../context/ThemeContext';
 
 const SettingsScreen = ({ navigation }) => {
   const { theme, isDark, toggleTheme: onThemeToggle } = useTheme();
-  const [apiKey, setApiKey] = useState('');
-  const [provider, setProvider] = useState('openai');
   const [fontSize, setFontSize] = useState('medium');
-  const [showApiConfig, setShowApiConfig] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -26,39 +22,13 @@ const SettingsScreen = ({ navigation }) => {
 
   const loadSettings = async () => {
     try {
-      const config = getAIConfig();
       const savedFontSize = await AsyncStorage.getItem('font_size');
-
-      if (config.apiKey) setApiKey(config.apiKey);
-      if (config.provider) setProvider(config.provider);
       if (savedFontSize) setFontSize(savedFontSize);
     } catch (error) {
       console.error('Error loading settings:', error);
     }
   };
 
-  const handleSaveApiKey = async () => {
-    if (!apiKey.trim()) {
-      Alert.alert('Error', 'Please enter an API key');
-      return;
-    }
-
-    try {
-      await AsyncStorage.setItem('ai_api_key', apiKey);
-      await AsyncStorage.setItem('ai_provider', provider);
-
-      updateAIConfig({
-        apiKey: apiKey,
-        provider: provider,
-      });
-
-      Alert.alert('Success', 'API configuration saved! You can now chat with the AI.');
-      setShowApiConfig(false);
-    } catch (error) {
-      console.error('Error saving API key:', error);
-      Alert.alert('Error', 'Failed to save API key');
-    }
-  };
 
   const handleFontSizeChange = async (size) => {
     setFontSize(size);
@@ -147,71 +117,6 @@ const SettingsScreen = ({ navigation }) => {
           />
         </SettingSection>
 
-        {/* AI Configuration */}
-        <SettingSection title="AI Configuration">
-          <TouchableOpacity
-            style={[styles.configButton, { backgroundColor: theme.colors.surface }]}
-            onPress={() => setShowApiConfig(!showApiConfig)}
-          >
-            <Text style={[styles.configButtonText, { color: theme.colors.text }]}>
-              {showApiConfig ? '▼' : '▶'} Configure AI API
-            </Text>
-          </TouchableOpacity>
-
-          {showApiConfig && (
-            <View style={[styles.apiConfig, { backgroundColor: theme.colors.verseBg }]}>
-              <Text style={[styles.apiConfigLabel, { color: theme.colors.text }]}>Provider</Text>
-              <View style={styles.providerButtons}>
-                {['openai', 'anthropic', 'groq', 'gemini'].map(p => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[
-                      styles.providerButton,
-                      {
-                        backgroundColor: provider === p ? theme.colors.accent : theme.colors.border
-                      }
-                    ]}
-                    onPress={() => setProvider(p)}
-                  >
-                    <Text
-                      style={[
-                        styles.providerButtonText,
-                        { color: provider === p ? '#FFFFFF' : theme.colors.text }
-                      ]}
-                    >
-                      {p.charAt(0).toUpperCase() + p.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={[styles.apiConfigLabel, { color: theme.colors.text }]}>API Key ({provider})</Text>
-              <TextInput
-                style={[styles.apiInput, { backgroundColor: theme.colors.background, color: theme.colors.text }]}
-                placeholder={`Enter your ${provider} API key`}
-                placeholderTextColor={theme.colors.textSecondary}
-                value={apiKey}
-                onChangeText={setApiKey}
-                secureTextEntry
-              />
-
-              <Text style={[styles.apiConfigHelp, { color: theme.colors.textSecondary }]}>
-                {provider === 'openai' && "Get your key from platform.openai.com. (Paid API)"}
-                {provider === 'anthropic' && "Get your key from console.anthropic.com. (Paid API)"}
-                {provider === 'groq' && "Get your FREE key from console.groq.com. (High speed!)"}
-                {provider === 'gemini' && "Get your FREE key from aistudio.google.com. (Highly recommended!)"}
-                {"\n\nWithout an API key, the app will use basic fallback responses."}
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
-                onPress={handleSaveApiKey}
-              >
-                <Text style={styles.saveButtonText}>Save API Configuration</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </SettingSection>
 
         {/* Support */}
         <SettingSection title="Support">
