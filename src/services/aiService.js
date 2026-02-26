@@ -121,30 +121,6 @@ const PROVIDERS = {
     );
     return response.data.choices[0].message.content;
   },
-  gemini: async (userMessage, conversationHistory) => {
-    // Format history for Gemini [ { role: 'user'|'model', parts: [{ text: '...' }] } ]
-    const contents = [
-      ...conversationHistory.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      })),
-      { role: 'user', parts: [{ text: userMessage }] }
-    ];
-
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${AI_CONFIG.model}:generateContent?key=${AI_CONFIG.apiKey}`,
-      {
-        contents,
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        generationConfig: { temperature: 0.7, maxOutputTokens: 400 },
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 15000,
-      }
-    );
-    return response.data.candidates[0].content.parts[0].text;
-  },
 };
 
 /**
@@ -234,8 +210,6 @@ export const updateAIConfig = (config) => {
     AI_CONFIG.model = 'gpt-3.5-turbo';
   } else if (config.provider === 'groq') {
     AI_CONFIG.model = 'llama-3.1-70b-versatile';
-  } else if (config.provider === 'gemini') {
-    AI_CONFIG.model = 'gemini-1.5-flash';
   }
 };
 
