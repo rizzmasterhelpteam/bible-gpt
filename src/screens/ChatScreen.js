@@ -158,7 +158,7 @@ const ChatScreen = ({ navigation }) => {
           <View>
             <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Bible GPT</Text>
             <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-              Chat with Abba
+              Chat with Father
             </Text>
           </View>
           {messages.length > 0 && (
@@ -207,7 +207,7 @@ const ChatScreen = ({ navigation }) => {
           <View style={[styles.loadingBubble, { backgroundColor: theme.colors.aiBubble }]}>
             <ActivityIndicator size="small" color={theme.colors.primary} />
             <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-              Abba is thinking...
+              Father is thinking...
             </Text>
           </View>
         )}

@@ -217,7 +217,7 @@ const SettingsScreen = ({ navigation }) => {
         <SettingSection title="Support">
           <TouchableOpacity
             style={[styles.settingRow, { backgroundColor: theme.colors.surface }]}
-            onPress={() => Alert.alert('Help', 'Bible GPT helps you find comfort in Scripture. Chat with Abba to share your struggles and receive encouragement.')}
+            onPress={() => Alert.alert('Help', 'Bible GPT helps you find comfort in Scripture. Chat with Father to share your struggles and receive encouragement.')}
           >
             <Text style={[styles.settingLabel, { color: theme.colors.text }]}>Help & Tutorial</Text>
             <Text style={[styles.settingArrow, { color: theme.colors.textSecondary }]}>→</Text>

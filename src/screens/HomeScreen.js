@@ -100,7 +100,7 @@ const HomeScreen = ({ navigation }) => {
         {/* Quick Actions */}
         <View style={styles.actionsContainer}>
           <QuickActionCard
-            title="Chat with Abba"
+            title="Chat with Father"
             subtitle="Share your heart"
             icon="chat-processing"
             color={theme.colors.accent}
